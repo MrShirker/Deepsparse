@@ -12,10 +12,9 @@ import torch
 import random
 from pathlib import Path
 
-import ultralytics
 import os
 
-from sort import Sort
+# from sort import Sort
 
 from deepsparse import Pipeline
 
@@ -23,18 +22,18 @@ app = FastAPI()
 
 app.mount("/gif", StaticFiles(directory="gif"), name="gif")
 
-model_selection_options = ['yolov5s','yolov5m','yolov5l','yolov5x','yolov5n',
-                        'yolov5n6','yolov5s6','yolov5m6','yolov5l6','yolov5x6']
-model_dict = {model_name: None for model_name in model_selection_options} #set up model cache
+# model_selection_options = ['yolov5s','yolov5m','yolov5l','yolov5x','yolov5n',
+#                         'yolov5n6','yolov5s6','yolov5m6','yolov5l6','yolov5x6']
+# model_dict = {model_name: None for model_name in model_selection_options} #set up model cache
 
-# Obtener la lista de nombres de archivos en la carpeta
-file_names = os.listdir('modelos/')
-# Extensiones de modelos válidas
-valid_extensions = ['.torchscript', '.onnx', '_openvino_model', '.engine ', '.mlmodel', '_saved_model', '.pt', '.tflite', '_edgetpu.tflite', '_paddle_model ']
-# Filtrar solo los archivos con extensiones de modelos válidas
-model_names = [file_name for file_name in file_names if os.path.splitext(file_name)[1] in valid_extensions]
-# Crear el diccionario con los nombres de los modelos
-custom_model_dict = {model_name: None for model_name in model_names}
+# # Obtener la lista de nombres de archivos en la carpeta
+# file_names = os.listdir('modelos/')
+# # Extensiones de modelos válidas
+# valid_extensions = ['.torchscript', '.onnx', '_openvino_model', '.engine ', '.mlmodel', '_saved_model', '.pt', '.tflite', '_edgetpu.tflite', '_paddle_model ']
+# # Filtrar solo los archivos con extensiones de modelos válidas
+# model_names = [file_name for file_name in file_names if os.path.splitext(file_name)[1] in valid_extensions]
+# # Crear el diccionario con los nombres de los modelos
+# custom_model_dict = {model_name: None for model_name in model_names}
 
 onnx_extension = ['.onnx']
 # Filtrar solo los archivos con extensiones de modelos válidas
@@ -42,34 +41,32 @@ onnx_models = [file_name for file_name in file_names if os.path.splitext(file_na
 # Crear el diccionario con los nombres de los modelos
 onnx_model_dict = {model_name: None for model_name in onnx_models}
 
-colors = [tuple([random.randint(0, 255) for _ in range(3)]) for _ in range(100)] #for bbox plotting
-
 # Crear la instancia de SORT
-mt_tracker = Sort()
+# mt_tracker = Sort()
 
 ##############################################
 #-------------GET Request Routes--------------
 ##############################################
-@app.get("/", response_class=HTMLResponse)
-async def root():
-    gif_files = os.listdir("gif")  # Obtiene la lista de archivos en la carpeta "gif"
-    random_gif = random.choice(gif_files)  # Elige un GIF aleatorio de la lista
-    message = "<h1>Bienvenido la página del Proyecto de Coche autónomo del Grupo TP2.2</h1>"
-    gif_url = f"/gif/{random_gif}"  # Construye la URL del GIF seleccionado
+# @app.get("/", response_class=HTMLResponse)
+# async def root():
+#     gif_files = os.listdir("gif")  # Obtiene la lista de archivos en la carpeta "gif"
+#     random_gif = random.choice(gif_files)  # Elige un GIF aleatorio de la lista
+#     message = "<h1>Bienvenido la página del Proyecto de Coche autónomo del Grupo TP2.2</h1>"
+#     gif_url = f"/gif/{random_gif}"  # Construye la URL del GIF seleccionado
 
-    html_content = f"""
-    <html>
-        <head>
-            <title>Página principal</title>
-        </head>
-        <body>
-            {message}
-            <img src="{gif_url}" alt="GIF aleatorio">
-        </body>
-    </html>
-    """
+#     html_content = f"""
+#     <html>
+#         <head>
+#             <title>Página principal</title>
+#         </head>
+#         <body>
+#             {message}
+#             <img src="{gif_url}" alt="GIF aleatorio">
+#         </body>
+#     </html>
+#     """
 
-    return html_content
+#     return html_content
 
 
 ##############################################
@@ -94,7 +91,7 @@ def detect_via_api(request: Request,
     Intended for API usage.
     '''
     
-    TIC = time.perf_counter()
+    # TIC = time.perf_counter()
     
     img_batch = [cv2.imdecode(np.frombuffer(file.file.read(), np.uint8), cv2.IMREAD_COLOR)
                 for file in file_list]
@@ -103,24 +100,29 @@ def detect_via_api(request: Request,
     #using cvtColor instead of [...,::-1] to keep array contiguous in RAM
     img_batch_rgb = [cv2.cvtColor(img, cv2.COLOR_BGR2RGB) for img in img_batch]
     
-    if model_name in custom_model_dict:
-        custom_model = True
-    else:
-        custom_model = False
+    # if model_name in custom_model_dict:
+    #     custom_model = True
+    # else:
+    #     custom_model = False
         
-    if model_name in model_dict:
-        yolo_model = True
+    # if model_name in model_dict:
+    #     yolo_model = True
+    # else:
+    #     yolo_model = False
+        
+    if model_name in onnx_model_dict:
+        onnx_model = True
     else:
-        yolo_model = False
+        onnx_model = False
 
-    if custom_model:
+    if onnx_model:
         
         #Añadimos la tuberia al diccionario
-        if custom_model_dict[model_name] is None:
+        if onnx_model_dict[model_name] is None:
             custom_path = 'modelos/'+model_name
             onnx_model_dict[model_name] = Pipeline.create(task="yolo", model_path=custom_path)
 
-        pipeline_outputs = yolo_pipeline(images=images, iou_thres=0.6, conf_thres=0.001)
+        pipeline_outputs = yolo_pipeline(images=img_batch_rgb, iou_thres=0.6, conf_thres=0.001)
         print(pipeline_outputs)
         encoded_json_results = str(pipeline_outputs)
         
@@ -143,32 +145,32 @@ def detect_via_api(request: Request,
                     
         #             # Agregar el ID actualizado a json_results
         #             json_results[0][j]['tracker_id'] = int(ids[4])  
-    elif yolo_model:
-        if model_dict[model_name] is None:
-            model_dict[model_name] = torch.hub.load('ultralytics/yolov5', model_name, pretrained=True)
+    # elif yolo_model:
+    #     if model_dict[model_name] is None:
+    #         model_dict[model_name] = torch.hub.load('ultralytics/yolov5', model_name, pretrained=True)
         
-        # Obtener las detecciones
-        results = model_dict[model_name](img_batch_rgb, size = img_size) 
-        json_results = results_to_json(results,model_dict[model_name])
+    #     # Obtener las detecciones
+    #     results = model_dict[model_name](img_batch_rgb, size = img_size) 
+    #     json_results = results_to_json(results,model_dict[model_name])
         
-        if tracking:
-            detections = results.pred[0].numpy()
-            # Actualizar SORT
-            track_bbs_ids = mt_tracker.update(detections)
+    #     if tracking:
+    #         detections = results.pred[0].numpy()
+    #         # Actualizar SORT
+    #         track_bbs_ids = mt_tracker.update(detections)
             
-            if len(track_bbs_ids) > 0:
-                for j in range(len(track_bbs_ids.tolist())):
-                    ids = track_bbs_ids.tolist()[j]
+    #         if len(track_bbs_ids) > 0:
+    #             for j in range(len(track_bbs_ids.tolist())):
+    #                 ids = track_bbs_ids.tolist()[j]
                     
-                    # Agregar el ID actualizado a json_results
-                    json_results[0][j]['tracker_id'] = int(ids[4])     
-    else:
-        print("El modelo elegido no esta disponible")
-    TOC = time.perf_counter()
+    #                 # Agregar el ID actualizado a json_results
+    #                 json_results[0][j]['tracker_id'] = int(ids[4])     
+    # else:
+    #     print("El modelo elegido no esta disponible")
+    # TOC = time.perf_counter()
     
-    json_results.append(f'{1000*(TOC - TIC):.2f}')
+    # json_results.append(f'{1000*(TOC - TIC):.2f}')
         
-    encoded_json_results = str(json_results).replace("'",r'"')
+    # encoded_json_results = str(json_results).replace("'",r'"')
     
     
     
@@ -181,69 +183,55 @@ def detect_via_api(request: Request,
     
     return encoded_json_results
 
-@app.get("/custom_models")
-def get_custom_models():    
-    lista = list(custom_model_dict)
-    encoded_json_results = str(lista).replace("'",r'"')
-    return encoded_json_results
+# @app.get("/custom_models")
+# def get_custom_models():    
+#     lista = list(custom_model_dict)
+#     encoded_json_results = str(lista).replace("'",r'"')
+#     return encoded_json_results
 
-@app.get("/t_proc")
-def obtener_media_numeros():
-    media = calcular_media_numeros()
-    return {"media": media}
+# @app.get("/t_proc")
+# def obtener_media_numeros():
+#     media = calcular_media_numeros()
+#     return {"media": media}
     
 ##############################################
 #--------------Helper Functions---------------
 ##############################################
 
-def results_to_json(results, model):
-    ''' Converts yolo model output to json (list of list of dicts)'''
-    return [
-                [
-                    {
-                    "class": int(pred[5]),
-                    "class_name": model.model.names[int(pred[5])],
-                    "bbox": [int(x) for x in pred[:4].tolist()], #convert bbox results to int from float
-                    "confidence": float(pred[4]),
-                    }
-                for pred in result
-                ]
-            for result in results.xyxy
-            ]
+# def results_to_json(results, model):
+#     ''' Converts yolo model output to json (list of list of dicts)'''
+#     return [
+#                 [
+#                     {
+#                     "class": int(pred[5]),
+#                     "class_name": model.model.names[int(pred[5])],
+#                     "bbox": [int(x) for x in pred[:4].tolist()], #convert bbox results to int from float
+#                     "confidence": float(pred[4]),
+#                     }
+#                 for pred in result
+#                 ]
+#             for result in results.xyxy
+#             ]
 
 
-def plot_one_box(x, im, color=(128, 128, 128), label=None, line_thickness=3):
-    # Directly copied from: https://github.com/ultralytics/yolov5/blob/cd540d8625bba8a05329ede3522046ee53eb349d/utils/plots.py
-    # Plots one bounding box on image 'im' using OpenCV
-    assert im.data.contiguous, 'Image not contiguous. Apply np.ascontiguousarray(im) to plot_on_box() input image.'
-    tl = line_thickness or round(0.002 * (im.shape[0] + im.shape[1]) / 2) + 1  # line/font thickness
-    c1, c2 = (int(x[0]), int(x[1])), (int(x[2]), int(x[3]))
-    cv2.rectangle(im, c1, c2, color, thickness=tl, lineType=cv2.LINE_AA)
-    if label:
-        tf = max(tl - 1, 1)  # font thickness
-        t_size = cv2.getTextSize(label, 0, fontScale=tl / 3, thickness=tf)[0]
-        c2 = c1[0] + t_size[0], c1[1] - t_size[1] - 3
-        cv2.rectangle(im, c1, c2, color, -1, cv2.LINE_AA)  # filled
-        cv2.putText(im, label, (c1[0], c1[1] - 2), 0, tl / 3, [225, 255, 255], thickness=tf, lineType=cv2.LINE_AA)
+# def calcular_media_numeros():
+#     archivo = Path("T_proc.txt")
+#     suma = 0
+#     contador = 0
 
-def calcular_media_numeros():
-    archivo = Path("T_proc.txt")
-    suma = 0
-    contador = 0
+#     with archivo.open() as f:
+#         for linea in f:
+#             numero = float(linea)
+#             suma += numero
+#             contador += 1
 
-    with archivo.open() as f:
-        for linea in f:
-            numero = float(linea)
-            suma += numero
-            contador += 1
+#     media = round(suma / contador, 2)
 
-    media = round(suma / contador, 2)
+#     # Vaciar el archivo
+#     with archivo.open("w") as f:
+#         f.truncate(0)
 
-    # Vaciar el archivo
-    with archivo.open("w") as f:
-        f.truncate(0)
-
-    return media
+#     return media
 
 if __name__ == '__main__':
     import uvicorn
