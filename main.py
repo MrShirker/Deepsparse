@@ -17,6 +17,8 @@ import os
 
 from sort import Sort
 
+from deepsparse import Pipeline
+
 app = FastAPI()
 
 app.mount("/gif", StaticFiles(directory="gif"), name="gif")
@@ -29,11 +31,16 @@ model_dict = {model_name: None for model_name in model_selection_options} #set u
 file_names = os.listdir('modelos/')
 # Extensiones de modelos válidas
 valid_extensions = ['.torchscript', '.onnx', '_openvino_model', '.engine ', '.mlmodel', '_saved_model', '.pt', '.tflite', '_edgetpu.tflite', '_paddle_model ']
-
 # Filtrar solo los archivos con extensiones de modelos válidas
 model_names = [file_name for file_name in file_names if os.path.splitext(file_name)[1] in valid_extensions]
 # Crear el diccionario con los nombres de los modelos
 custom_model_dict = {model_name: None for model_name in model_names}
+
+onnx_extension = ['.onnx']
+# Filtrar solo los archivos con extensiones de modelos válidas
+onnx_models = [file_name for file_name in file_names if os.path.splitext(file_name)[1] in onnx_extension]
+# Crear el diccionario con los nombres de los modelos
+onnx_model_dict = {model_name: None for model_name in onnx_models}
 
 colors = [tuple([random.randint(0, 255) for _ in range(3)]) for _ in range(100)] #for bbox plotting
 
@@ -107,25 +114,35 @@ def detect_via_api(request: Request,
         yolo_model = False
 
     if custom_model:
+        
+        #Añadimos la tuberia al diccionario
         if custom_model_dict[model_name] is None:
             custom_path = 'modelos/'+model_name
-            custom_model_dict[model_name] = torch.hub.load('ultralytics/yolov5', 'custom',  path=custom_path)
+            onnx_model_dict[model_name] = Pipeline.create(task="yolo", model_path=custom_path)
+
+        pipeline_outputs = yolo_pipeline(images=images, iou_thres=0.6, conf_thres=0.001)
+        print(pipeline_outputs)
+        encoded_json_results = str(pipeline_outputs)
         
-        # Obtener las detecciones
-        results = custom_model_dict[model_name](img_batch_rgb, size = img_size) 
-        json_results = results_to_json(results,custom_model_dict[model_name])
+        # if custom_model_dict[model_name] is None:
+        #     custom_path = 'modelos/'+model_name
+        #     custom_model_dict[model_name] = torch.hub.load('ultralytics/yolov5', 'custom',  path=custom_path)
         
-        if tracking:
-            detections = results.pred[0].numpy()
-            # Actualizar SORT
-            track_bbs_ids = mt_tracker.update(detections)
+        # # Obtener las detecciones
+        # results = custom_model_dict[model_name](img_batch_rgb, size = img_size) 
+        # json_results = results_to_json(results,custom_model_dict[model_name])
+        
+        # if tracking:
+        #     detections = results.pred[0].numpy()
+        #     # Actualizar SORT
+        #     track_bbs_ids = mt_tracker.update(detections)
             
-            if len(track_bbs_ids) > 0:
-                for j in range(len(track_bbs_ids.tolist())):
-                    ids = track_bbs_ids.tolist()[j]
+        #     if len(track_bbs_ids) > 0:
+        #         for j in range(len(track_bbs_ids.tolist())):
+        #             ids = track_bbs_ids.tolist()[j]
                     
-                    # Agregar el ID actualizado a json_results
-                    json_results[0][j]['tracker_id'] = int(ids[4])  
+        #             # Agregar el ID actualizado a json_results
+        #             json_results[0][j]['tracker_id'] = int(ids[4])  
     elif yolo_model:
         if model_dict[model_name] is None:
             model_dict[model_name] = torch.hub.load('ultralytics/yolov5', model_name, pretrained=True)
